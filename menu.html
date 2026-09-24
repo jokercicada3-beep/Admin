@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مطعم البونطو — نظام إدارة المخزون والنواقص</title>
+<style>
+/* ============ المتغيرات والأساسيات ============ */
+:root{
+  --bg:#0d1016; --bg2:#12161f; --card:#181d29; --card2:#1f2534;
+  --border:#2a3244; --border2:#37415a;
+  --txt:#e9eef7; --muted:#8e9bb3; --muted2:#6b778f;
+  --green:#22c55e; --green-d:#15803d;
+  --red:#ef4444; --red-d:#b91c1c;
+  --amber:#f59e0b; --amber-d:#b45309;
+  --blue:#3b82f6; --purple:#a855f7; --gold:#d4af37;
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'Cairo','Tajawal','Segoe UI',Tahoma,Arial,sans-serif;
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(34,197,94,.07), transparent 60%),
+    radial-gradient(900px 500px at 0% 0%, rgba(239,68,68,.06), transparent 55%),
+    var(--bg);
+  color:var(--txt); line-height:1.6; min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:#4a5673}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+a{color:inherit}
+
+/* ============ الشريط العلوي ============ */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:14px 22px;background:rgba(18,22,31,.9);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:60;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{
+  width:52px;height:52px;border-radius:15px;display:grid;place-items:center;font-size:26px;
+  background:linear-gradient(135deg,#0f172a,#1e293b);
+  border:2px solid transparent;
+  background-image:linear-gradient(135deg,#0f172a,#1e293b),linear-gradient(135deg,#22c55e 0%,#fff 50%,#ef4444 100%);
+  background-origin:border-box;background-clip:padding-box,border-box;
+  box-shadow:0 6px 18px rgba(0,0,0,.4);
+}
+.brand h1{font-size:1.25rem;font-weight:800;letter-spacing:-.3px}
+.brand h1 span{background:linear-gradient(90deg,#22c55e,#d4af37,#ef4444);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand small{display:block;color:var(--muted);font-size:.74rem;font-weight:600;letter-spacing:.3px}
+.topbar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.date-chip{
+  background:var(--card);border:1px solid var(--border);padding:8px 14px;border-radius:30px;
+  font-size:.8rem;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+.admin-btn{
+  display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:30px;font-weight:700;font-size:.82rem;
+  background:var(--card);border:1px solid var(--border);transition:.2s;
+}
+.admin-btn:hover{border-color:var(--border2);background:var(--card2)}
+.admin-btn.on{background:linear-gradient(135deg,#166534,#15803d);border-color:#22c55e;color:#dcfce7}
+
+/* ============ التبويبات ============ */
+.tabs{
+  display:flex;gap:6px;padding:12px 22px 0;overflow-x:auto;position:sticky;top:81px;z-index:55;
+  background:linear-gradient(180deg,rgba(13,16,22,.96),rgba(13,16,22,.75));backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab-btn{
+  padding:11px 18px;border-radius:11px 11px 0 0;font-weight:700;font-size:.86rem;color:var(--muted);
+  border:1px solid transparent;border-bottom:none;white-space:nowrap;transition:.18s;position:relative;
+}
+.tab-btn:hover{color:var(--txt);background:rgba(255,255,255,.03)}
+.tab-btn.active{color:var(--txt);background:var(--card);border-color:var(--border);}
+.tab-btn.active::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:linear-gradient(90deg,#22c55e,#d4af37,#ef4444)}
+main{padding:22px;max-width:1500px;margin:0 auto}
+.tab-panel{display:none;animation:fade .28s ease}
+.tab-panel.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ============ البطاقات ============ */
+.panel{
+  background:linear-gradient(180deg,var(--card),var(--bg2));
+  border:1px solid var(--border);border-radius:var(--radius);padding:18px;
+  box-shadow:var(--shadow);margin-bottom:18px;
+}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.panel-head h3{font-size:.98rem;font-weight:800;display:flex;align-items:center;gap:8px}
+.panel-head h3::before{content:'';width:4px;height:18px;border-radius:3px;background:linear-gradient(180deg,#22c55e,#d4af37)}
+
+/* ============ شبكة الإحصائيات ============ */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}
+.stat-card{
+  background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden;transition:.22s;
+}
+.stat-card:hover{transform:translateY(-3px);border-color:var(--border2)}
+.stat-card::before{content:'';position:absolute;inset-inline-start:0;top:0;bottom:0;width:4px;background:var(--accent,#22c55e)}
+.stat-card .st-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.stat-card .st-label{font-size:.78rem;color:var(--muted);font-weight:700}
+.stat-card .st-icon{font-size:1.3rem;opacity:.85}
+.stat-card .st-value{font-size:1.7rem;font-weight:800;letter-spacing:-1px;line-height:1.15}
+.stat-card .st-sub{font-size:.72rem;color:var(--muted2);font-weight:600;margin-top:2px}
+
+/* ============ الأزرار ============ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:10px 18px;border-radius:10px;font-weight:700;font-size:.84rem;
+  border:1px solid var(--border);background:var(--card2);transition:.18s;white-space:nowrap;
+}
+.btn:hover{background:#28304a;border-color:var(--border2);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn-primary{background:linear-gradient(135deg,#16a34a,#22c55e);border-color:#22c55e;color:#04240f}
+.btn-primary:hover{background:linear-gradient(135deg,#22c55e,#4ade80)}
+.btn-danger{background:linear-gradient(135deg,#b91c1c,#ef4444);border-color:#ef4444;color:#fff}
+.btn-danger:hover{background:linear-gradient(135deg,#ef4444,#f87171)}
+.btn-ghost{background:transparent}
+.btn-gold{background:linear-gradient(135deg,#a16207,#d4af37);border-color:#d4af37;color:#1c1400}
+.btn-sm{padding:7px 12px;font-size:.76rem;border-radius:8px}
+.icon-btn{
+  width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  border:1px solid var(--border);background:var(--card2);transition:.18s;font-size:.9rem;
+}
+.icon-btn:hover{background:#28304a;border-color:var(--border2)}
+.icon-btn.danger:hover{background:var(--red-d);border-color:var(--red)}
+
+/* ============ أدوات التصفية ============ */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.toolbar input[type=text],.toolbar input[type=search],.toolbar select{
+  padding:10px 14px;border-radius:10px;border:1px solid var(--border);
+  background:var(--card);outline:none;transition:.18s;font-size:.84rem;min-width:150px;
+}
+.toolbar input:focus,.toolbar select:focus{border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.13)}
+.search-wrap{position:relative;flex:1;min-width:200px}
+.search-wrap input{width:100%;padding-inline-start:38px !important}
+.search-wrap::before{content:'🔍';position:absolute;inset-inline-start:13px;top:50%;transform:translateY(-50%);font-size:.85rem;opacity:.6;pointer-events:none}
+.spacer{flex:1}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{
+  padding:8px 15px;border-radius:30px;font-size:.78rem;font-weight:700;
+  border:1px solid var(--border);background:var(--card);color:var(--muted);transition:.18s;
+}
+.chip:hover{color:var(--txt);border-color:var(--border2)}
+.chip.active{background:linear-gradient(135deg,#166534,#15803d);border-color:#22c55e;color:#dcfce7}
+
+/* ============ الجداول ============ */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-sm);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:.84rem;min-width:760px}
+thead th{
+  background:var(--card2);padding:13px 14px;text-align:right;font-weight:800;font-size:.78rem;
+  color:var(--muted);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap;
+}
+tbody td{padding:12px 14px;border-bottom:1px solid rgba(42,50,68,.55);vertical-align:middle}
+tbody tr{transition:.15s}
+tbody tr:hover{background:rgba(255,255,255,.026)}
+tbody tr:last-child td{border-bottom:none}
+.num{font-variant-numeric:tabular-nums;font-weight:700}
+
+/* ============ الشارات ============ */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:30px;
+  font-size:.73rem;font-weight:800;white-space:nowrap;
+}
+.badge.green{background:rgba(34,197,94,.14);color:#4ade80;border:1px solid rgba(34,197,94,.3)}
+.badge.red{background:rgba(239,68,68,.14);color:#f87171;border:1px solid rgba(239,68,68,.3)}
+.badge.amber{background:rgba(245,158,11,.14);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
+.badge.blue{background:rgba(59,130,246,.14);color:#60a5fa;border:1px solid rgba(59,130,246,.3)}
+.badge.gray{background:rgba(142,155,179,.13);color:var(--muted);border:1px solid rgba(142,155,179,.25)}
+.badge.purple{background:rgba(168,85,247,.14);color:#c084fc;border:1px solid rgba(168,85,247,.3)}
+
+/* ============ الرسوم البيانية ============ */
+.hbar{display:grid;grid-template-columns:130px 1fr 82px;gap:10px;align-items:center;margin-bottom:11px}
+.hbar-label{font-size:.79rem;font-weight:700;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbar-track{height:11px;background:var(--bg);border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.hbar-fill{height:100%;border-radius:8px;transition:width .7s cubic-bezier(.4,0,.2,1);min-width:3px}
+.hbar-val{font-size:.78rem;font-weight:800;text-align:left;font-variant-numeric:tabular-nums}
+.donut-wrap{display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center}
+.donut-legend{display:flex;flex-direction:column;gap:9px;min-width:150px}
+.legend-item{display:flex;align-items:center;gap:9px;font-size:.8rem;font-weight:600}
+.legend-dot{width:11px;height:11px;border-radius:4px;flex-shrink:0}
+.legend-val{margin-inline-start:auto;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ============ القوائم ============ */
+.list{display:flex;flex-direction:column;gap:9px;max-height:360px;overflow-y:auto;padding-inline-end:4px}
+.list-item{
+  display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;
+  background:var(--bg2);border:1px solid var(--border);transition:.18s;
+}
+.list-item:hover{border-color:var(--border2);background:var(--card2)}
+.list-item .li-icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:1.05rem;background:var(--card);flex-shrink:0}
+.list-item .li-main{flex:1;min-width:0}
+.list-item .li-title{font-weight:700;font-size:.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-item .li-sub{font-size:.72rem;color:var(--muted2);font-weight:600}
+.list-item .li-val{font-weight:800;font-size:.83rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* ============ الشبكات ============ */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+@media(max-width:960px){.grid-2{grid-template-columns:1fr}}
+
+/* ============ الحالة الفارغة ============ */
+.empty{
+  text-align:center;padding:34px 18px;color:var(--muted2);font-size:.85rem;font-weight:600;
+}
+.empty .em-ico{font-size:2.4rem;display:block;margin-bottom:10px;opacity:.5}
+
+/* ============ النوافذ المنبثقة ============ */
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(5,7,11,.78);backdrop-filter:blur(6px);
+  display:none;align-items:center;justify-content:center;z-index:200;padding:18px;
+}
+.modal-backdrop.show{display:flex;animation:fade .2s}
+.modal{
+  background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--border2);
+  border-radius:18px;width:100%;max-width:640px;max-height:92vh;display:flex;flex-direction:column;
+  box-shadow:0 30px 70px rgba(0,0,0,.6);animation:pop .28s cubic-bezier(.34,1.4,.64,1);
+}
+.modal.wide{max-width:900px}
+@keyframes pop{from{opacity:0;transform:scale(.94) translateY(14px)}to{opacity:1;transform:none}}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:17px 20px;border-bottom:1px solid var(--border);
+}
+.modal-head h3{font-size:1rem;font-weight:800}
+.modal-body{padding:20px;overflow-y:auto;flex:1}
+.modal-foot{
+  display:flex;gap:10px;justify-content:flex-start;padding:15px 20px;
+  border-top:1px solid var(--border);background:rgba(0,0,0,.16);flex-wrap:wrap;
+}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:.78rem;font-weight:700;color:var(--muted)}
+.field input,.field select,.field textarea{
+  padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);
+  outline:none;transition:.18s;font-size:.86rem;width:100%;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.13)}
+.field textarea{resize:vertical;min-height:70px}
+.hint{font-size:.72rem;color:var(--muted2);font-weight:600}
+
+/* ============ بنود الطلبية ============ */
+.order-line{
+  display:grid;grid-template-columns:1fr 90px 90px 100px 40px;gap:9px;align-items:center;
+  padding:10px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);margin-bottom:9px;
+}
+@media(max-width:700px){
+  .order-line{grid-template-columns:1fr 1fr;gap:8px}
+  .order-line>*:last-child{grid-column:span 2}
+}
+.order-line .ol-name{font-weight:700;font-size:.82rem}
+.order-line .ol-sub{font-size:.7rem;color:var(--muted2)}
+.order-line input{padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);outline:none;width:100%;font-size:.8rem}
+.order-line input:focus{border-color:#22c55e}
+
+/* ============ بطاقة الطلبية ============ */
+.order-card{
+  background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px;margin-bottom:14px;transition:.2s;
+}
+.order-card:hover{border-color:var(--border2)}
+.oc-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.oc-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.oc-num{font-weight:800;font-size:.92rem;color:var(--gold)}
+.oc-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);font-weight:600;margin-bottom:11px}
+.oc-lines{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.oc-line{
+  display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:9px;
+  background:var(--bg);font-size:.79rem;border:1px solid rgba(42,50,68,.6);
+}
+.oc-line .olq{margin-inline-start:auto;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums}
+.oc-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:12px;border-top:1px dashed var(--border)}
+.oc-total{font-weight:800;font-size:.92rem}
+.oc-total span{color:var(--gold)}
+
+/* ============ التنبيهات ============ */
+#toasts{position:fixed;bottom:22px;inset-inline-start:22px;z-index:400;display:flex;flex-direction:column;gap:10px}
+.toast{
+  display:flex;align-items:center;gap:10px;padding:13px 18px;border-radius:12px;
+  background:var(--card2);border:1px solid var(--border2);box-shadow:var(--shadow);
+  font-size:.83rem;font-weight:700;animation:slideIn .3s cubic-bezier(.34,1.4,.64,1);
+  min-width:230px;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:none}}
+.toast.ok{border-inline-start:4px solid var(--green)}
+.toast.warn{border-inline-start:4px solid var(--amber)}
+.toast.err{border-inline-start:4px solid var(--red)}
+
+/* ============ شاشة القفل ============ */
+.lock-note{
+  display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:11px;
+  background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.28);
+  font-size:.8rem;font-weight:700;color:#fbbf24;margin-bottom:16px;
+}
+.pin-input{
+  text-align:center;letter-spacing:12px;font-size:1.5rem;font-weight:800;
+  padding:16px !important;
+}
+@media print{
+  .topbar,.tabs,.toolbar,.modal-foot,.icon-btn,.btn{display:none !important}
+  body{background:#fff;color:#000}
+  .panel,.order-card{border-color:#ccc;background:#fff}
+}
+@media(max-width:640px){
+  main{padding:14px}
+  .topbar{padding:12px 14px}
+  .tabs{padding:10px 14px 0;top:auto;position:static}
+  .brand h1{font-size:1.05rem}
+  .stat-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+  .stat-card .st-value{font-size:1.35rem}
+  .hbar{grid-template-columns:92px 1fr 66px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ الشريط العلوي ============ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">🍕</div>
+    <div>
+      <h1>مطعم <span>البونطو</span></h1>
+      <small>نظام إدارة المخزون · النواقص · الطلبيات</small>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <span class="date-chip" id="todayChip">—</span>
+    <button class="admin-btn" id="adminBtn" onclick="toggleAdmin()">🔒 وضع المشاهد</button>
+  </div>
+</header>
+
+<!-- ============ التبويبات ============ -->
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="dashboard">📊 لوحة التحكم</button>
+  <button class="tab-btn" data-tab="inventory">📦 الأصناف والمخزون</button>
+  <button class="tab-btn" data-tab="orders">🧾 الطلبيات</button>
+  <button class="tab-btn" data-tab="stats">📈 الإحصائيات</button>
+  <button class="tab-btn" data-tab="settings">⚙️ الإعدادات</button>
+</nav>
+
+<main>
+  <!-- ============ لوحة التحكم ============ -->
+  <section class="tab-panel active" id="tab-dashboard">
+    <div class="toolbar">
+      <span style="font-size:.8rem;font-weight:700;color:var(--muted)">الفترة الزمنية:</span>
+      <div class="chips" id="periodChips">
+        <button class="chip active" data-period="day">📅 يومي</button>
+        <button class="chip" data-period="week">🗓️ أسبوعي</button>
+        <button class="chip" data-period="month">📆 شهري</button>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-sm" onclick="printShortages()">🖨️ طباعة تقرير النواقص</button>
+    </div>
+
+    <div class="stat-grid" id="dashStats"></div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>⚠️ النواقص العاجلة</h3>
+          <button class="btn btn-sm btn-primary" onclick="createOrderFromShortages()">➕ طلبية من النواقص</button>
+        </div>
+        <div id="dashShortages" class="list"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>📦 توزيع المخزون حسب الفئة</h3></div>
+        <div id="dashCatChart"></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><h3>🕒 آخر حركات المخزون</h3></div>
+        <div id="dashMoves" class="list"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h3>🧾 آخر الطلبيات</h3>
+          <button class="btn btn-sm" onclick="switchTab('orders')">عرض الكل ←</button>
+        </div>
+        <div id="dashOrders" class="list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ الأصناف والمخزون ============ -->
+  <section class="tab-panel" id="tab-inventory">
+    <div class="panel">
+      <div class="toolbar">
+        <div class="search-wrap">
+          <input type="search" id="invSearch" placeholder="ابحث عن صنف..." oninput="renderInventory()">
+        </div>
+        <select id="invCat" onchange="renderInventory()"><option value="">كل الفئات</option></select>
+        <select id="invStatus" onchange="renderInventory()">
+          <option value="">كل الحالات</option>
+          <option value="ناقص">ناقص</option>
+          <option value="منخفض">منخفض</option>
+          <option value="متوفر">متوفر</option>
+        </select>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" onclick="openItemForm()" data-admin>➕ صنف جديد</button>
+      </div>
+
+      <div class="stat-grid" id="invStats" style="margin-bottom:16px"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>الصنف</th>
+              <th>الفئة</th>
+              <th>الوحدة</th>
+              <th>الكمية</th>
+              <th>الحد الأدنى</th>
+              <th>الحالة</th>
+              <th>سعر الوحدة</th>
+              <th>القيمة</th>
+              <th style="text-align:center">إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="invBody"></tbody>
+        </table>
+      </div>
+      <div id="invEmpty"></div>
+    </div>
+  </section>
+
+  <!-- ============ الطلبيات ============ -->
+  <section class="tab-panel" id="tab-orders">
+    <div class="panel">
+      <div class="toolbar">
+        <div class="search-wrap">
+          <input type="search" id="ordSearch" placeholder="ابحث في الطلبيات..." oninput="renderOrders()">
+        </div>
+        <select id="ordStatus" onchange="renderOrders()">
+          <option value="">كل الحالات</option>
+          <option value="معلقة">معلقة</option>
+          <option value="تم الإرسال">تم الإرسال</option>
+          <option value="تم التسليم">تم التسليم</option>
+          <option value="ملغاة">ملغاة</option>
+        </select>
+        <div class="spacer"></div>
+        <button class="btn btn-gold" onclick="createOrderFromShortages()">⚡ طلبية من النواقص</button>
+        <button class="btn btn-primary" onclick="openOrderForm()" data-admin>➕ طلبية جديدة</button>
+      </div>
+      <div class="stat-grid" id="ordStats" style="margin-bottom:16px"></div>
+      <div id="ordersList"></div>
+    </div>
+  </section>
+
+  <!-- ============ الإحصائيات ============ -->
+  <section class="tab-panel" id="tab-stats">
+    <div class="toolbar">
+      <span style="font-size:.8rem;font-weight:700;color:var(--muted)">تحليل الفترة:</span>
+      <div class="chips" id="statsPeriodChips">
+        <button class="chip active" data-period="day">📅 يومي</button>
+        <button class="chip" data-period="week">🗓️ أسبوعي</button>
+        <button class="chip" data-period="month">📆 شهري</button>
+        <button class="chip" data-period="all">♾️ الكل</button>
+      </div>
+    </div>
+    <div class="stat-grid" id="statsCards"></div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><h3>📉 النواقص حسب الفئة</h3></div>
+        <div id="statsShortByCat"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>🥧 حالة المخزون العامة</h3></div>
+        <div id="statsDonut"></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><h3>🔥 أكثر الأصناف نقصاً (حركات)</h3></div>
+        <div id="statsTopShort"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>💰 قيمة المخزون حسب الفئة</h3></div>
+        <div id="statsValueByCat"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>📋 سجل الحركات التفصيلي</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>التاريخ</th><th>الصنف</th><th>النوع</th><th>من</th><th>إلى</th><th>الفرق</th><th>ملاحظة</th></tr></thead>
+          <tbody id="statsMovesBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ الإعدادات ============ -->
+  <section class="tab-panel" id="tab-settings">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><h3>🔐 الصلاحيات والأمان</h3></div>
+        <div id="settingsAuth"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>💾 البيانات والنسخ الاحتياطي</h3></div>
+        <div class="field">
+          <label>تصدير البيانات</label>
+          <button class="btn btn-primary" onclick="exportData()">⬇️ تنزيل نسخة JSON</button>
+          <span class="hint">يحتوي على كل الأصناف والطلبيات وسجل الحركات.</span>
+        </div>
+        <div class="field">
+          <label>استيراد البيانات</label>
+          <input type="file" id="importFile" accept=".json" onchange="importData(event)">
+          <span class="hint">سيتم استبدال البيانات الحالية بالكامل.</span>
+        </div>
+        <div class="field">
+          <label>منطقة الخطر</label>
+          <button class="btn btn-danger" onclick="resetData()">🗑️ إعادة تعيين كل البيانات</button>
+          <span class="hint">سيتم حذف كل شيء والعودة للقائمة الافتراضية.</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>📊 ملخص قاعدة البيانات</h3></div>
+      <div class="stat-grid" id="settingsStats"></div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ النوافذ ============ -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<div id="toasts"></div>
+
+<datalist id="catList"></datalist>
+<datalist id="unitList">
+  <option value="كجم"><option value="جرام"><option value="لتر"><option value="مل">
+  <option value="علبة"><option value="عبوة"><option value="قطعة"><option value="طبق">
+  <option value="كرتون"><option value="كيس"><option value="لفة"><option value="صندوق">
+</datalist>
+
+<script>
+/* =========================================================
+   مطعم البونطو — نظام إدارة المخزون والنواقص
+   ========================================================= */
+
+/* ---------- أدوات مساعدة ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => (Number(n) || 0).toLocaleString('en-US', {maximumFractionDigits: 2});
+const money = n => fmt(n) + ' ج.م';
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const nowISO = () => new Date().toISOString();
+
+function toast(msg, type = 'ok') {
+  const icons = { ok: '✅', warn: '⚠️', err: '❌' };
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${esc(msg)}</span>`;
+  $('#toasts').appendChild(el);
+  setTimeout(() => {
+    el.style.transition = '.3s'; el.style.opacity = '0'; el.style.transform = 'translateX(-25px)';
+    setTimeout(() => el.remove(), 320);
+  }, 2800);
+}
+
+/* ---------- الفئات الثابتة ---------- */
+const CATS = ['خضروات','فواكه','لحوم ودواجن','أسماك ومأكولات بحرية','أجبان وألبان','نشويات وباستا',
+              'زيوت وصلصات','توابل وأعشاب','مخبوزات','مشروبات','تغليف ومستهلكات','حلويات'];
+
+const CAT_ICONS = {
+  'خضروات':'🥬','فواكه':'🍎','لحوم ودواجن':'🥩','أسماك ومأكولات بحرية':'🐟',
+  'أجبان وألبان':'🧀','نشويات وباستا':'🍝','زيوت وصلصات':'🫒','توابل وأعشاب':'🌿',
+  'مخبوزات':'🥖','مشروبات':'🥤','تغليف ومستهلكات':'📦','حلويات':'🍰'
+};
+const catIcon = c => CAT_ICONS[c] || '📦';
+
+const PALETTE = ['#22c55e','#3b82f6','#f59e0b','#ef4444','#a855f7','#06b6d4',
+                 '#eab308','#ec4899','#84cc16','#f97316','#14b8a6','#8b5cf6'];
+
+/* =========================================================
+   قائمة أصناف مطعم إيطالي (البذرة الافتراضية)
+   [الاسم، الفئة، الوحدة، الكمية، الحد الأدنى، السعر]
+   ========================================================= */
+const SEED = [
+  // ---------- خضروات ----------
+  ['طماطم','خضروات','كجم',30,10,8],
+  ['طماطم كرزية','خضروات','كجم',8,3,15],
+  ['بصل','خضروات','كجم',25,8,6],
+  ['بصل أحمر','خضروات','كجم',8,3,9],
+  ['ثوم','خضروات','كجم',5,2,20],
+  ['فلفل رومي','خضروات','كجم',10,4,12],
+  ['فلفل حار','خضروات','كجم',2,1,25],
+  ['كوسا','خضروات','كجم',10,4,9],
+  ['باذنجان','خضروات','كجم',12,4,8],
+  ['جزر','خضروات','كجم',10,4,7],
+  ['كرفس','خضروات','كجم',4,2,10],
+  ['سبانخ','خضروات','كجم',5,2,12],
+  ['خس','خضورات','كجم',6,2,10],
+  ['جرجير','خضروات','كجم',3,1,14],
+  ['ريحان طازج','خضروات','كجم',2,1,30],
+  ['بقدونس','خضروات','كجم',2,1,12],
+  ['مشروم طازج','خضروات','كجم',8,3,22],
+  ['بروكلي','خضروات','كجم',5,2,16],
+  ['قرنبيط','خضروات','كجم',4,2,12],
+  ['بطاطس','خضروات','كجم',30,10,6],
+  ['ليمون','خضروات','كجم',10,4,10],
+  ['برتقال','فواكه','كجم',8,3,9],
+  ['ذرة حلوة','خضروات','كجم',4,2,14],
+  ['بازلاء','خضروات','كجم',5,2,12],
+  ['فطر بورتشيني مجفف','خضروات','كجم',1,0.5,180],
+  ['كراث','خضروات','كجم',4,2,11],
+  ['شمندر','خضروات','كجم',4,2,9],
+  ['خرشوف','خضروات','كجم',3,1,35],
+  ['هليون','خضروات','كجم',3,1,45],
+
+  // ---------- لحوم ودواجن ----------
+  ['لحم بقري مفروم','لحوم ودواجن','كجم',15,5,120],
+  ['ستيك ريب آي','لحوم ودواجن','كجم',8,3,220],
+  ['لحم بقري شرائح','لحوم ودواجن','كجم',10,4,180],
+  ['أوسوبوكو (عجل)','لحوم ودواجن','كجم',5,2,160],
+  ['صدور دجاج','لحوم ودواجن','كجم',20,8,45],
+  ['أفخاذ دجاج','لحوم ودواجن','كجم',12,5,35],
+  ['دجاج كامل','لحوم ودواجن','كجم',10,4,30],
+  ['بيكون','لحوم ودواجن','كجم',4,2,90],
+  ['سلامي إيطالي','لحوم ودواجن','كجم',3,1,110],
+  ['بيبروني','لحوم ودواجن','كجم',3,1,120],
+  ['بروشوتو','لحوم ودواجن','كجم',2,1,250],
+  ['سجق إيطالي','لحوم ودواجن','كجم',5,2,95],
+  ['بسطرمة','لحوم ودواجن','كجم',3,1,130],
+  ['كبد دجاج','لحوم ودواجن','كجم',4,2,40],
+
+  // ---------- أسماك ومأكولات بحرية ----------
+  ['سلمون فيليه','أسماك ومأكولات بحرية','كجم',6,2,190],
+  ['تونة معلبة','أسماك ومأكولات بحرية','علبة',12,4,18],
+  ['أنشوجة','أسماك ومأكولات بحرية','علبة',6,2,30],
+  ['جمبري','أسماك ومأكولات بحرية','كجم',5,2,150],
+  ['كاليماري (حبار)','أسماك ومأكولات بحرية','كجم',4,2,110],
+  ['بلح البحر','أسماك ومأكولات بحرية','كجم',4,2,80],
+  ['سمك دنيس','أسماك ومأكولات بحرية','كجم',5,2,130],
+
+  // ---------- أجبان وألبان ----------
+  ['موزاريلا طازجة','أجبان وألبان','كجم',10,4,55],
+  ['موزاريلا مبشورة','أجبان وألبان','كجم',8,3,50],
+  ['بارميزان','أجبان وألبان','كجم',4,1.5,200],
+  ['ريكوتا','أجبان وألبان','كجم',4,2,60],
+  ['جورجونزولا','أجبان وألبان','كجم',2,1,180],
+  ['بروفولوني','أجبان وألبان','كجم',2,1,150],
+  ['ماسكربوني','أجبان وألبان','كجم',4,2,90],
+  ['جبن كريمي','أجبان وألبان','كجم',5,2,40],
+  ['حليب كامل','أجبان وألبان','لتر',30,10,7],
+  ['كريمة طبخ','أجبان وألبان','لتر',15,5,18],
+  ['زبدة','أجبان وألبان','كجم',6,2,60],
+  ['زبادي','أجبان وألبان','كجم',5,2,15],
+  ['بيض','أجبان وألبان','طبق',10,4,25],
+
+  // ---------- نشويات وباستا ----------
+  ['سباجيتي','نشويات وباستا','كجم',15,5,15],
+  ['بيني','نشويات وباستا','كجم',12,5,15],
+  ['فيتوتشيني','نشويات وباستا','كجم',8,3,18],
+  ['لازانيا','نشويات وباستا','كجم',8,3,20],
+  ['رافيولي','نشويات وباستا','كجم',5,2,35],
+  ['تورتيليني','نشويات وباستا','كجم',5,2,38],
+  ['نودلز بيض','نشويات وباستا','كجم',4,2,30],
+  ['أوريكييتي','نشويات وباستا','كجم',6,2,17],
+  ['كونكيلي','نشويات وباستا','كجم',6,2,17],
+  ['طحين 00','نشويات وباستا','كجم',25,10,9],
+  ['طحين سميد','نشويات وباستا','كجم',10,4,11],
+  ['أرز أربوريو','نشويات وباستا','كجم',8,3,30],
+  ['أرز بسمتي','نشويات وباستا','كجم',10,4,14],
+  ['كسكس','نشويات وباستا','كجم',4,2,16],
+  ['عجينة بيتزا جاهزة','نشويات وباستا','كجم',10,4,18],
+  ['بقسماط','نشويات وباستا','كجم',5,2,12],
+
+  // ---------- زيوت وصلصات ----------
+  ['زيت زيتون بكر ممتاز','زيوت وصلصات','لتر',12,4,75],
+  ['زيت زيتون عادي','زيوت وصلصات','لتر',10,4,50],
+  ['زيت نباتي للقلي','زيوت وصلصات','لتر',25,10,18],
+  ['صلصة طماطم (باساتا)','زيوت وصلصات','كجم',20,8,12],
+  ['معجون طماطم','زيوت وصلصات','كجم',10,4,16],
+  ['صلصة بيستو','زيوت وصلصات','كجم',3,1,90],
+  ['خل بلسمي','زيوت وصلصات','لتر',4,2,45],
+  ['خل أبيض','زيوت وصلصات','لتر',5,2,10],
+  ['صلصة صويا','زيوت وصلصات','لتر',3,1,25],
+  ['مايونيز','زيوت وصلصات','كجم',6,2,22],
+  ['مسطردة ديجون','زيوت وصلصات','كجم',3,1,28],
+  ['كاتشب','زيوت وصلصات','كجم',8,3,15],
+  ['صلصة بشاميل جاهزة','زيوت وصلصات','كجم',5,2,25],
+  ['مرق دجاج (بودرة)','زيوت وصلصات','كجم',4,2,40],
+  ['مرق لحم (بودرة)','زيوت وصلصات','كجم',4,2,42],
+  ['عسل','زيوت وصلصات','كجم',3,1,60],
+  ['نبيذ طبخ أحمر','زيوت وصلصات','لتر',4,2,55],
+  ['نبيذ طبخ أبيض','زيوت وصلصات','لتر',4,2,55],
+  ['طرطوس (صلصة حارة)','زيوت وصلصات','كجم',3,1,26],
+
+  // ---------- توابل وأعشاب ----------
+  ['ملح','توابل وأعشاب','كجم',10,4,3],
+  ['فلفل أسود مطحون','توابل وأعشاب','كجم',3,1,45],
+  ['فلفل أحمر مجروش','توابل وأعشاب','كجم',2,1,40],
+  ['أوريغانو مجفف','توابل وأعشاب','كجم',2,1,35],
+  ['ريحان مجفف','توابل وأعشاب','كجم',2,1,35],
+  ['زعتر','توابل وأعشاب','كجم',2,1,30],
+  ['إكليل الجبل','توابل وأعشاب','كجم',1,0.5,40],
+  ['مريمية','توابل وأعشاب','كجم',1,0.5,40],
+  ['جوزة الطيب','توابل وأعشاب','كجم',1,0.5,80],
+  ['قرفة','توابل وأعشاب','كجم',1,0.5,30],
+  ['زعفران','توابل وأعشاب','جرام',20,10,15],
+  ['فانيليا','توابل وأعشاب','لتر',1,0.5,120],
+  ['سكر','توابل وأعشاب','كجم',20,8,6],
+  ['خميرة فورية','توابل وأعشاب','كجم',3,1,25],
+  ['بيكنج باودر','توابل وأعشاب','كجم',2,1,18],
+  ['نشا','توابل وأعشاب','كجم',5,2,12],
+  ['مسحوق ثوم','توابل وأعشاب','كجم',2,1,30],
+  ['بهارات إيطالية مشكلة','توابل وأعشاب','كجم',2,1,45],
+  ['فلفل تشيلي مجفف','توابل وأعشاب','كجم',1,0.5,50],
+  ['أعشاب بروفانس','توابل وأعشاب','كجم',1,0.5,55],
+
+  // ---------- مخبوزات ----------
+  ['خبز فرنسي (باجيت)','مخبوزات','قطعة',40,15,6],
+  ['خبز تشاباتا','مخبوزات','قطعة',30,12,8],
+  ['خبز فوكاتشيا','مخبوزات','قطعة',25,10,10],
+  ['توست','مخبوزات','قطعة',30,10,5],
+  ['قشرة بيتزا جاهزة','مخبوزات','قطعة',50,20,7],
+
+  // ---------- مشروبات ----------
+  ['ماء معدني','مشروبات','عبوة',48,24,2],
+  ['مشروبات غازية','مشروبات','عبوة',36,12,4],
+  ['عصير برتقال','مشروبات','لتر',15,6,12],
+  ['قهوة إسبريسو','مشروبات','كجم',8,3,90],
+  ['شاي','مشروبات','علبة',6,2,25],
+
+  // ---------- تغليف ومستهلكات ----------
+  ['علب بيتزا','تغليف ومستهلكات','قطعة',200,80,1.5],
+  ['أكياس تغليف','تغليف ومستهلكات','قطعة',300,100,0.5],
+  ['مناديل ورقية','تغليف ومستهلكات','علبة',30,10,8],
+  ['قفازات مطاطية','تغليف ومستهلكات','علبة',20,8,15],
+  ['ورق ألمنيوم','تغليف ومستهلكات','لفة',10,4,20],
+  ['ورق تغليف طعام','تغليف ومستهلكات','لفة',10,4,18],
+  ['أطباق بلاستيكية','تغليف ومستهلكات','قطعة',150,50,1],
+  ['أكواب بلاستيكية','تغليف ومستهلكات','قطعة',200,80,0.8],
+
+  // ---------- حلويات ----------
+  ['شوكولاتة داكنة','حلويات','كجم',4,2,85],
+  ['كاكاو بودرة','حلويات','كجم',3,1,60],
+  ['بسكويت سافويردي','حلويات','كجم',4,2,45],
+  ['مكسرات مشكلة','حلويات','كجم',3,1,120],
+  ['جبن قريش للحلويات','حلويات','كجم',5,2,35]
+];
+
+/* =========================================================
+   الحالة والتخزين
+   ========================================================= */
+const LS_KEY = 'albonto_v1';
+
+function seedItems() {
+  return SEED.map(([name, cat, unit, qty, min, price]) => ({
+    id: uid(), name, cat, unit,
+    qty: Number(qty), min: Number(min), price: Number(price),
+    note: '', createdAt: nowISO(), updatedAt: nowISO()
+  }));
+}
+
+let state = null;
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      return {
+        items: Array.isArray(p.items) ? p.items : seedItems(),
+        orders: Array.isArray(p.orders) ? p.orders : [],
+        moves: Array.isArray(p.moves) ? p.moves : [],
+        settings: Object.assign({ pin: '1234' }, p.settings || {})
+      };
+    }
+  } catch (e) { console.warn('فشل تحميل البيانات', e); }
+  return { items: seedItems(), orders: [], moves: [], settings: { pin: '1234' } };
+}
+
+function saveState() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+  catch (e) { toast('تعذّر حفظ البيانات', 'err'); }
+}
+
+state = loadState();
+
+/* ---------- صلاحية المدير ---------- */
+let isAdmin = sessionStorage.getItem('albonto_admin') === '1';
+
+function updateAdminUI() {
+  const btn = $('#adminBtn');
+  btn.classList.toggle('on', isAdmin);
+  btn.textContent = isAdmin ? '🔓 وضع المدير' : '🔒 وضع المشاهد';
+  $$('[data-admin]').forEach(el => el.style.display = isAdmin ? '' : 'none');
+  renderSettings();
+}
+
+function toggleAdmin() {
+  if (isAdmin) {
+    isAdmin = false;
+    sessionStorage.removeItem('albonto_admin');
+    updateAdminUI(); renderAll();
+    toast('تم التحويل لوضع المشاهد', 'warn');
+    return;
+  }
+  openPinModal();
+}
+
+function openPinModal() {
+  openModal(`
+    <div class="modal-head"><h3>🔐 الدخول بوضع المدير</h3>
+      <button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="lock-note">⚠️ وضع المدير يمنح صلاحية الإضافة والتعديل والحذف.</div>
+      <div class="field">
+        <label>أدخل رمز الدخول</label>
+        <input type="password" id="pinInput" class="pin-input" maxlength="8" placeholder="••••"
+               onkeydown="if(event.key==='Enter')confirmPin()">
+        <span class="hint">الرمز الافتراضي: 1234 (يمكن تغييره من الإعدادات)</span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="confirmPin()">دخول</button>
+      <button class="btn btn-ghost" onclick="closeModal()">إلغاء</button>
+    </div>`);
+  setTimeout(() => $('#pinInput')?.focus(), 80);
+}
+
+function confirmPin() {
+  const v = $('#pinInput').value.trim();
+  if (v === String(state.settings.pin)) {
+    isAdmin = true;
+    sessionStorage.setItem('albonto_admin', '1');
+    closeModal(); updateAdminUI(); renderAll();
+    toast('مرحباً بك في وضع المدير 👑');
+  } else {
+    toast('رمز غير صحيح', 'err');
+    $('#pinInput').value = '';
+    $('#pinInput').focus();
+  }
+}
+
+function requireAdmin() {
+  if (!isAdmin) { toast('تحتاج صلاحية المدير لهذا الإجراء', 'warn'); return false; }
+  return true;
+}
+
+/* =========================================================
+   حساب الحالة
+   ========================================================= */
+function statusOf(it) {
+  const q = Number(it.qty) || 0, m = Number(it.min) || 0;
+  if (q <= 0) return 'ناقص';
+  if (q <= m) return 'منخفض';
+  return 'متوفر';
+}
+function statusBadge(st) {
+  const map = { 'ناقص': 'red', 'منخفض': 'amber', 'متوفر': 'green' };
+  const ico = { 'ناقص': '⛔', 'منخفض': '⚠️', 'متوفر': '✅' };
+  return `<span class="badge ${map[st]}">${ico[st]} ${st}</span>`;
+}
+const isShort = it => statusOf(it) !== 'متوفر';
+
+/* =========================================================
+   الرسوم البيانية
+   ========================================================= */
+function hBars(el, data, color = '#22c55e', suffix = '') {
+  if (!data.length) {
+    el.innerHTML = `<div class="empty"><span class="em-ico">📭</span>لا توجد بيانات</div>`;
+    return;
+  }
+  const max = Math.max(...data.map(d => d.value), 1);
+  el.innerHTML = data.map(d => `
+    <div class="hbar">
+      <div class="hbar-label" title="${esc(d.label)}">${esc(d.label)}</div>
+      <div class="hbar-track">
+        <div class="hbar-fill" style="width:${Math.max(2, d.value / max * 100).toFixed(1)}%;background:${d.color || color}"></div>
+      </div>
+      <div class="hbar-val">${fmt(d.value)}${suffix}</div>
+    </div>`).join('');
+}
+
+function donut(el, data) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (!total) { el.innerHTML = `<div class="empty"><span class="em-ico">📭</span>لا توجد بيانات</div>`; return; }
+  const r = 54, C = 2 * Math.PI * r;
+  let offset = 0;
+  const segs = data.map(d => {
+    const len = d.value / total * C;
+    const s = `<circle cx="70" cy="70" r="${r}" fill="none" stroke="${d.color}" stroke-width="19"
+      stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}"
+      stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 70 70)"
+      stroke-linecap="butt"><title>${esc(d.label)}: ${fmt(d.value)}</title></circle>`;
+    offset += len;
+    return s;
+  }).join('');
+  el.innerHTML = `
+    <div class="donut-wrap">
+      <svg width="150" height="150" viewBox="0 0 140 140">
+        <circle cx="70" cy="70" r="${r}" fill="none" stroke="#1f2534" stroke-width="19"/>
+        ${segs}
+        <text x="70" y="64" text-anchor="middle" fill="#e9eef7" font-size="21" font-weight="800">${fmt(total)}</text>
+        <text x="70" y="84" text-anchor="middle" fill="#8e9bb3" font-size="10.5" font-weight="700">إجمالي</text>
+      </svg>
+      <div class="donut-legend">
+        ${data.map(d => `
+          <div class="legend-item">
+            <span class="legend-dot" style="background:${d.color}"></span>
+            <span>${esc(d.label)}</span>
+            <span class="legend-val">${fmt(d.value)}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+/* =========================================================
+   الفترات الزمنية
+   ========================================================= */
+let period = 'day';        // لوحة التحكم
+let statsPeriod = 'day';   // الإحصائيات
+
+function inPeriod(dateStr, p) {
+  if (p === 'all') return true;
+  const d = new Date(dateStr).getTime();
+  const diff = (Date.now() - d) / 86400000;
+  if (p === 'day') return diff <= 1;
+  if (p === 'week') return diff <= 7;
+  if (p === 'month') return diff <= 30;
+  return true;
+}
+const periodLabel = p => ({ day: 'اليوم', week: 'هذا الأسبوع', month: 'هذا الشهر', all: 'كل الفترات' }[p] || '');
+
+/* =========================================================
+   التنقل بين التبويبات
+   ========================================================= */
+function switchTab(name) {
+  $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  $$('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+$$('.tab-btn').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+
+/* =========================================================
+   لوحة التحكم
+   ========================================================= */
+function renderDashboard() {
+  const items = state.items;
+  const total = items.length;
+  const short = items.filter(i => statusOf(i) === 'ناقص').length;
+  const low = items.filter(i => statusOf(i) === 'منخفض').length;
+  const ok = items.filter(i => statusOf(i) === 'متوفر').length;
+  const value = items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0);
+  const shortValue = items.filter(isShort).reduce((s, i) => s + Math.max(0, (Number(i.min) || 0) - (Number(i.qty) || 0)) * (Number(i.price) || 0), 0);
+  const pending = state.orders.filter(o => o.status === 'معلقة').length;
+  const movesInPeriod = state.moves.filter(m => inPeriod(m.date, period)).length;
+
+  $('#dashStats').innerHTML = `
+    <div class="stat-card" style="--accent:#3b82f6">
+      <div class="st-top"><span class="st-label">إجمالي الأصناف</span><span class="st-icon">📦</span></div>
+      <div class="st-value">${fmt(total)}</div>
+      <div class="st-sub">${fmt(ok)} متوفر · ${fmt(low)} منخفض · ${fmt(short)} ناقص</div>
+    </div>
+    <div class="stat-card" style="--accent:#ef4444">
+      <div class="st-top"><span class="st-label">أصناف ناقصة</span><span class="st-icon">⛔</span></div>
+      <div class="st-value" style="color:#f87171">${fmt(short)}</div>
+      <div class="st-sub">تحتاج طلب فوري</div>
+    </div>
+    <div class="stat-card" style="--accent:#f59e0b">
+      <div class="st-top"><span class="st-label">أصناف منخفضة</span><span class="st-icon">⚠️</span></div>
+      <div class="st-value" style="color:#fbbf24">${fmt(low)}</div>
+      <div class="st-sub">قاربت على النفاد</div>
+    </div>
+    <div class="stat-card" style="--accent:#22c55e">
+      <div class="st-top"><span class="st-label">قيمة المخزون</span><span class="st-icon">💰</span></div>
+      <div class="st-value" style="color:#4ade80">${fmt(Math.round(value))}</div>
+      <div class="st-sub">جنيه مصري</div>
+    </div>
+    <div class="stat-card" style="--accent:#a855f7">
+      <div class="st-top"><span class="st-label">قيمة النواقص</span><span class="st-icon">🧾</span></div>
+      <div class="st-value" style="color:#c084fc">${fmt(Math.round(shortValue))}</div>
+      <div class="st-sub">تقديرية لإعادة التعبئة</div>
+    </div>
+    <div class="stat-card" style="--accent:#06b6d4">
+      <div class="st-top"><span class="st-label">حركات ${periodLabel(period)}</span><span class="st-icon">🔄</span></div>
+      <div class="st-value">${fmt(movesInPeriod)}</div>
+      <div class="st-sub">${fmt(pending)} طلبية معلّقة</div>
+    </div>`;
+
+  /* النواقص العاجلة */
+  const shorts = items.filter(isShort)
+    .sort((a, b) => {
+      const sa = statusOf(a) === 'ناقص' ? 0 : 1, sb = statusOf(b) === 'ناقص' ? 0 : 1;
+      if (sa !== sb) return sa - sb;
+      return (a.qty / (a.min || 1)) - (b.qty / (b.min || 1));
+    }).slice(0, 12);
+
+  $('#dashShortages').innerHTML = shorts.length ? shorts.map(i => `
+    <div class="list-item">
+      <div class="li-icon">${catIcon(i.cat)}</div>
+      <div class="li-main">
+        <div class="li-title">${esc(i.name)}</div>
+        <div class="li-sub">${esc(i.cat)} · الحد الأدنى ${fmt(i.min)} ${esc(i.unit)}</div>
+      </div>
+      <div style="text-align:center">
+        <div class="li-val" style="color:${statusOf(i) === 'ناقص' ? '#f87171' : '#fbbf24'}">${fmt(i.qty)} ${esc(i.unit)}</div>
+        ${statusBadge(statusOf(i))}
+      </div>
+    </div>`).join('')
+    : `<div class="empty"><span class="em-ico">🎉</span>لا توجد نواقص — المخزون مكتمل!</div>`;
+
+  /* توزيع المخزون حسب الفئة */
+  const byCat = {};
+  items.forEach(i => { byCat[i.cat] = (byCat[i.cat] || 0) + 1; });
+  hBars($('#dashCatChart'),
+    Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([k, v], idx) => ({
+      label: catIcon(k) + ' ' + k, value: v, color: PALETTE[idx % PALETTE.length]
+    })), '#22c55e', ' صنف');
+
+  /* آخر الحركات */
+  const moves = [...state.moves].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+  $('#dashMoves').innerHTML = moves.length ? moves.map(m => `
+    <div class="list-item">
+      <div class="li-icon">${m.delta > 0 ? '⬆️' : m.delta < 0 ? '⬇️' : '🔄'}</div>
+      <div class="li-main">
+        <div class="li-title">${esc(m.name)}</div>
+        <div class="li-sub">${esc(m.type)} · ${new Date(m.date).toLocaleDateString('ar-EG')} ${new Date(m.date).toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+      <div class="li-val" style="color:${m.delta > 0 ? '#4ade80' : m.delta < 0 ? '#f87171' : '#8e9bb3'}">
+        ${m.delta > 0 ? '+' : ''}${fmt(m.delta)}
+      </div>
+    </div>`).join('')
+    : `<div class="empty"><span class="em-ico">📭</span>لا توجد حركات مسجّلة بعد</div>`;
+
+  /* آخر الطلبيات */
+  const ords = [...state.orders].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6);
+  $('#dashOrders').innerHTML = ords.length ? ords.map(o => {
+    const st = orderStatusBadge(o.status);
+    const totalQty = (o.lines || []).reduce((s, l) => s + (Number(l.qty) || 0), 0);
+    return `<div class="list-item">
+      <div class="li-icon">🧾</div>
+      <div class="li-main">
+        <div class="li-title">طلبية #${esc(o.num)} ${o.supplier ? '· ' + esc(o.supplier) : ''}</div>
+        <div class="li-sub">${new Date(o.date).toLocaleDateString('ar-EG')} · ${(o.lines || []).length} بند · ${fmt(totalQty)} وحدة</div>
+      </div>
+      ${st}
+    </div>`;
+  }).join('')
+    : `<div class="empty"><span class="em-ico">📭</span>لا توجد طلبيات بعد</div>`;
+}
+
+/* =========================================================
+   المخزون
+   ========================================================= */
+function renderInventory() {
+  /* قائمة الفئات */
+  const catSel = $('#invCat');
+  const cats = [...new Set([...CATS, ...state.items.map(i => i.cat)])].filter(Boolean).sort();
+  const curCat = catSel.value;
+  catSel.innerHTML = `<option value="">كل الفئات</option>` +
+    cats.map(c => `<option value="${esc(c)}">${catIcon(c)} ${esc(c)}</option>`).join('');
+  catSel.value = curCat;
+
+  const q = ($('#invSearch').value || '').trim().toLowerCase();
+  const cat = catSel.value;
+  const st = $('#invStatus').value;
+
+  let list = state.items.filter(i => {
+    if (q && !(i.name.toLowerCase().includes(q) || (i.cat || '').toLowerCase().includes(q))) return false;
+    if (cat && i.cat !== cat) return false;
+    if (st && statusOf(i) !== st) return false;
+    return true;
+  });
+
+  /* ترتيب: الناقص ثم المنخفض ثم الأبجدي */
+  const order = { 'ناقص': 0, 'منخفض': 1, 'متوفر': 2 };
+  list.sort((a, b) => order[statusOf(a)] - order[statusOf(b)] || a.name.localeCompare(b.name, 'ar'));
+
+  /* بطاقات الإحصاء السريعة */
+  const all = state.items;
+  const totalVal = all.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0);
+  $('#invStats').innerHTML = `
+    <div class="stat-card" style="--accent:#3b82f6">
+      <div class="st-top"><span class="st-label">الأصناف المعروضة</span><span class="st-icon">🔎</span></div>
+      <div class="st-value">${fmt(list.length)}</div><div class="st-sub">من أصل ${fmt(all.length)}</div></div>
+    <div class="stat-card" style="--accent:#ef4444">
+      <div class="st-top"><span class="st-label">ناقص</span><span class="st-icon">⛔</span></div>
+      <div class="st-value" style="color:#f87171">${fmt(all.filter(i => statusOf(i) === 'ناقص').length)}</div><div class="st-sub">كمية صفر</div></div>
+    <div class="stat-card" style="--accent:#f59e0b">
+      <div class="st-top"><span class="st-label">منخفض</span><span class="st-icon">⚠️</span></div>
+      <div class="st-value" style="color:#fbbf24">${fmt(all.filter(i => statusOf(i) === 'منخفض').length)}</div><div class="st-sub">تحت الحد الأدنى</div></div>
+    <div class="stat-card" style="--accent:#22c55e">
+      <div class="st-top"><span class="st-label">قيمة المخزون</span><span class="st-icon">💰</span></div>
+      <div class="st-value" style="color:#4ade80">${fmt(Math.round(totalVal))}</div><div class="st-sub">جنيه مصري</div></div>`;
+
+  /* الجدول */
+  const body = $('#invBody');
+  if (!list.length) {
+    body.innerHTML = '';
+    $('#invEmpty').innerHTML = `<div class="empty"><span class="em-ico">🔍</span>لا توجد أصناف مطابقة للبحث</div>`;
+    return;
+  }
+  $('#invEmpty').innerHTML = '';
+  body.innerHTML = list.map(i => {
+    const s = statusOf(i);
+    const val = (Number(i.qty) || 0) * (Number(i.price) || 0);
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:9px">
+          <span style="font-size:1.05rem">${catIcon(i.cat)}</span>
+          <div>
+            <div style="font-weight:700">${esc(i.name)}</div>
+            ${i.note ? `<div style="font-size:.7rem;color:var(--muted2)">${esc(i.note)}</div>` : ''}
+          </div>
+        </div>
+      </td>
+      <td><span class="badge gray">${esc(i.cat)}</span></td>
+      <td style="color:var(--muted)">${esc(i.unit)}</td>
+      <td class="num" style="color:${s === 'ناقص' ? '#f87171' : s === 'منخفض' ? '#fbbf24' : '#4ade80'}">${fmt(i.qty)}</td>
+      <td class="num" style="color:var(--muted)">${fmt(i.min)}</td>
+      <td>${statusBadge(s)}</td>
+      <td class="num" style="color:var(--muted)">${fmt(i.price)}</td>
+      <td class="num">${fmt(Math.round(val))}</td>
+      <td>
+        <div style="display:flex;gap:6px;justify-content:center">
+          <button class="icon-btn" title="جرد سريع" onclick="quickStock('${i.id}')" data-admin>📝</button>
+          <button class="icon-btn" title="تعديل" onclick="openItemForm('${i.id}')" data-admin>✏️</button>
+          <button class="icon-btn danger" title="حذف" onclick="deleteItem('${i.id}')" data-admin>🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  $$('[data-admin]').forEach(el => el.style.display = isAdmin ? '' : 'none');
+}
+
+/* ---------- نموذج الصنف ---------- */
+function openItemForm(id) {
+  if (!requireAdmin()) return;
+  const it = id ? state.items.find(x => x.id === id) : null;
+  const cats = [...new Set([...CATS, ...state.items.map(i => i.cat)])].filter(Boolean).sort();
+
+  openModal(`
+    <div class="modal-head">
+      <h3>${it ? '✏️ تعديل صنف' : '➕ إضافة صنف جديد'}</h3>
+      <button class="icon-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field">
+          <label>اسم الصنف *</label>
+          <input id="f_name" value="${esc(it?.name || '')}" placeholder="مثال: موزاريلا طازجة">
+        </div>
+        <div class="field">
+          <label>الفئة *</label>
+          <input id="f_cat" list="catList" value="${esc(it?.cat || '')}" placeholder="مثال: أجبان وألبان">
+          <datalist id="catListModal">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+        </div>
+        <div class="field">
+          <label>وحدة القياس</label>
+          <input id="f_unit" list="unitList" value="${esc(it?.unit || 'كجم')}">
+        </div>
+        <div class="field">
+          <label>سعر الوحدة (ج.م)</label>
+          <input id="f_price" type="number" step="0.01" min="0" value="${it ? it.price : 0}">
+        </div>
+        <div class="field">
+          <label>الكمية الحالية</label>
+          <input id="f_qty" type="number" step="0.01" min="0" value="${it ? it.qty : 0}">
+        </div>
+        <div class="field">
+          <label>الحد الأدنى (نقطة الطلب)</label>
+          <input id="f_min" type="number" step="0.01" min="0" value="${it ? it.min : 1}">
+        </div>
+      </div>
+      <div class="field">
+        <label>ملاحظات</label>
+        <textarea id="f_note" placeholder="أي ملاحظات عن الصنف أو المورد...">${esc(it?.note || '')}</textarea>
+      </div>
+      <div class="hint">💡 عند وصول الكمية للحد الأدنى أو أقل، سيُصنّف الصنف تلقائياً ضمن النواقص.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveItem('${id || ''}')">💾 حفظ</button>
+      <button class="btn btn-ghost" onclick="closeModal()">إلغاء</button>
+    </div>`);
+  setTimeout(() => $('#f_name')?.focus(), 80);
+}
+
+function saveItem(id) {
+  if (!requireAdmin()) return;
+  const name = $('#f_name').value.trim();
+  const cat = $('#f_cat').value.trim() || 'أخرى';
+  const unit = $('#f_unit').value.trim() || 'كجم';
+  const price = parseFloat($('#f_price').value) || 0;
+  const qty = parseFloat($('#f_qty').value) || 0;
+  const min = parseFloat($('#f_min').value) || 0;
+  const note = $('#f_note').value.trim();
+
+  if (!name) { toast('اسم الصنف مطلوب', 'err'); return; }
+
+  if (id) {
+    const it = state.items.find(x => x.id === id);
+    if (!it) return;
+    const oldQty = Number(it.qty) || 0;
+    Object.assign(it, { name, cat, unit, price, qty, min, note, updatedAt: nowISO() });
+    if (oldQty !== qty) {
+      addMove(it.id, name, oldQty, qty, qty - oldQty, 'تعديل صنف', '');
+    }
+    toast('تم تعديل الصنف بنجاح');
+  } else {
+    const newItem = { id: uid(), name, cat, unit, price, qty, min, note, createdAt: nowISO(), updatedAt: nowISO() };
+    state.items.push(newItem);
+    if (qty > 0) addMove(newItem.id, name, 0, qty, qty, 'إضافة صنف', '');
+    toast('تمت إضافة الصنف بنجاح');
+  }
+  saveState(); closeModal(); renderAll();
+}
+
+function deleteItem(id) {
+  if (!requireAdmin()) return;
+  const it = state.items.find(x => x.id === id);
+  if (!it) return;
+  confirmDialog(`هل تريد حذف الصنف «${esc(it.name)}» نهائياً؟`, () => {
+    state.items = state.items.filter(x => x.id !== id);
+    saveState(); renderAll();
+    toast('تم حذف الصنف', 'warn');
+  });
+}
+
+/* ---------- الجرد السريع ---------- */
+function quickStock(id) {
+  if (!requireAdmin()) return;
+  const it = state.items.find(x => x.id === id);
+  if (!it) return;
+  openModal(`
+    <div class="modal-head">
+      <h3>📝 جرد سريع — ${esc(it.name)}</h3>
+      <button class="icon-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="lock-note" style="background:rgba(59,130,246,.09);border-color:rgba(59,130,246,.28);color:#60a5fa">
+        ℹ️ الكمية الحالية المسجّلة: <b>${fmt(it.qty)} ${esc(it.unit)}</b> · الحد الأدنى: ${fmt(it.min)}
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>الكمية الفعلية بعد الجرد</label>
+          <input id="q_qty" type="number" step="0.01" min="0" value="${it.qty}">
+        </div>
+        <div class="field">
+          <label>الوحدة</label>
+          <input value="${esc(it.unit)}" disabled style="opacity:.6">
+        </div>
+      </div>
+      <div class="field">
+        <label>ملاحظة (اختياري)</label>
+        <input id="q_note" placeholder="مثال: تم استخدام 5 كجم اليوم">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveQuickStock('${id}')">💾 حفظ الجرد</button>
+      <button class="btn btn-ghost" onclick="closeModal()">إلغاء</button>
+    </div>`);
+  setTimeout(() => { const el = $('#q_qty'); el?.focus(); el?.select(); }, 80);
+}
+
+function saveQuickStock(id) {
+  if (!requireAdmin()) return;
+  const it = state.items.find(x => x.id === id);
+  if (!it) return;
+  const newQty = parseFloat($('#q_qty').value);
+  if (isNaN(newQty) || newQty < 0) { toast('أدخل كمية صحيحة', 'err'); return; }
+  const oldQty = Number(it.qty) || 0;
+  const note = $('#q_note').value.trim();
+  it.qty = newQty; it.updatedAt = nowISO();
+  addMove(it.id, it.name, oldQty, newQty, newQty - oldQty, 'جرد', note);
+  saveState(); closeModal(); renderAll();
+  toast(newQty <= it.min ? 'تم الجرد — الصنف ضمن النواقص ⚠️' : 'تم تحديث الجرد بنجاح', newQty <= it.min ? 'warn' : 'ok');
+}
+
+/* ---------- تسجيل الحركة ---------- */
+function addMove(itemId, name, from, to, delta, type, note) {
+  state.moves.unshift({
+    id: uid(), itemId, name, from: Number(from) || 0, to: Number(to) || 0,
+    delta: Number(delta) || 0, type, note: note || '', date: nowISO()
+  });
+  if (state.moves.length > 1200) state.moves.length = 1200;
+}
+
+/* =========================================================
+   الطلبيات
+   ========================================================= */
+function orderStatusBadge(s) {
+  const map = { 'معلقة': 'amber', 'تم الإرسال': 'blue', 'تم التسليم': 'green', 'ملغاة': 'red' };
+  const ico = { 'معلقة': '⏳', 'تم الإرسال': '📤', 'تم التسليم': '✅', 'ملغاة': '❌' };
+  return `<span class="badge ${map[s] || 'gray'}">${ico[s] || '•'} ${esc(s)}</span>`;
+}
+
+function nextOrderNum() {
+  const n = state.orders.length + 1;
+  return String(n).padStart(4, '0');
+}
+
+function orderTotal(o) {
+  return (o.lines || []).reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+}
+
+let draftOrder = null;
+
+function openOrderForm(id) {
+  if (!requireAdmin()) return;
+  if (id) {
+    const o = state.orders.find(x => x.id === id);
+    if (!o) return;
+    draftOrder = JSON.parse(JSON.stringify(o));
+  } else {
+    draftOrder = {
+      id: uid(), num: nextOrderNum(), date: todayISO(),
+      supplier: '', status: 'معلقة', notes: '', lines: [], createdAt: nowISO()
+    };
+  }
+  renderOrderForm();
+}
+
+function renderOrderForm() {
+  const items = [...state.items].sort((a, b) => a.cat.localeCompare(b.cat, 'ar') || a.name.localeCompare(b.name, 'ar'));
+  const grouped = {};
+  items.forEach(i => { (grouped[i.cat] = grouped[i.cat] || []).push(i); });
+  const options = Object.entries(grouped).map(([cat, arr]) =>
+    `<optgroup label="${esc(cat)}">${arr.map(i =>
+      `<option value="${i.id}">${esc(i.name)} (${esc(i.unit)}) — متاح: ${fmt(i.qty)}</option>`).join('')}</optgroup>`
+  ).join('');
+
+  const totalQty = draftOrder.lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
+  const totalVal = draftOrder.lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+
+  openModal(`
+    <div class="modal-head">
+      <h3>🧾 ${state.orders.some(o => o.id === draftOrder.id) ? 'تعديل طلبية' : 'طلبية جديدة'} #${esc(draftOrder.num)}</h3>
+      <button class="icon-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field">
+          <label>التاريخ</label>
+          <input type="date" id="o_date" value="${esc(draftOrder.date)}">
+        </div>
+        <div class="field">
+          <label>المورد</label>
+          <input id="o_supplier" list="supplierList" value="${esc(draftOrder.supplier)}" placeholder="اسم المورد">
+          <datalist id="supplierList">
+            <option value="سوق الخضار المركزي"><option value="مورد اللحوم">
+            <option value="شركة الألبان والأجبان"><option value="مورد الباستا والزيوت">
+            <option value="مورد المأكولات البحرية"><option value="مورد التغليف والمستهلكات">
+          </datalist>
+        </div>
+        <div class="field">
+          <label>حالة الطلبية</label>
+          <select id="o_status">
+            ${['معلقة','تم الإرسال','تم التسليم','ملغاة'].map(s =>
+              `<option ${draftOrder.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>إضافة بند من الأصناف</label>
+          <select id="o_pick" onchange="addOrderLine(this.value); this.value='';">
+            <option value="">— اختر صنفاً لإضافته —</option>
+            ${options}
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px">
+        <label style="font-size:.8rem;font-weight:800;color:var(--muted)">بنود الطلبية (${draftOrder.lines.length})</label>
+        <button class="btn btn-sm" onclick="fillShortagesIntoDraft()">⚡ إضافة كل النواقص</button>
+      </div>
+
+      <div id="orderLinesBox">
+        ${draftOrder.lines.length ? draftOrder.lines.map((l, idx) => `
+          <div class="order-line">
+            <div>
+              <div class="ol-name">${catIcon(l.cat)} ${esc(l.name)}</div>
+              <div class="ol-sub">${esc(l.cat)} · الوحدة: ${esc(l.unit)}</div>
+            </div>
+            <div>
+              <div class="ol-sub" style="margin-bottom:3px">الكمية</div>
+              <input type="number" step="0.01" min="0" value="${l.qty}" oninput="updateLine(${idx},'qty',this.value)">
+            </div>
+            <div>
+              <div class="ol-sub" style="margin-bottom:3px">السعر</div>
+              <input type="number" step="0.01" min="0" value="${l.price}" oninput="updateLine(${idx},'price',this.value)">
+            </div>
+            <div style="text-align:center">
+              <div class="ol-sub" style="margin-bottom:3px">الإجمالي</div>
+              <div style="font-weight:800;font-size:.8rem">${fmt((Number(l.qty)||0)*(Number(l.price)||0))}</div>
+            </div>
+            <button class="icon-btn danger" onclick="removeLine(${idx})">✕</button>
+          </div>`).join('')
+        : `<div class="empty"><span class="em-ico">📝</span>لم تُضف أي بنود بعد — اختر من القائمة أعلاه</div>`}
+      </div>
+
+      <div class="field" style="margin-top:14px">
+        <label>ملاحظات الطلبية</label>
+        <textarea id="o_notes" placeholder="ملاحظات للمورد أو للمطبخ...">${esc(draftOrder.notes)}</textarea>
+      </div>
+
+      <div style="display:flex;gap:20px;flex-wrap:wrap;padding:14px;border-radius:11px;background:var(--bg2);border:1px solid var(--border)">
+        <div><div class="hint">عدد البنود</div><div style="font-weight:800">${draftOrder.lines.length}</div></div>
+        <div><div class="hint">إجمالي الكميات</div><div style="font-weight:800">${fmt(totalQty)}</div></div>
+        <div style="margin-inline-start:auto"><div class="hint">القيمة التقديرية</div><div style="font-weight:800;color:var(--gold);font-size:1.05rem">${money(totalVal)}</div></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveOrder()">💾 حفظ الطلبية</button>
+      <button class="btn btn-ghost" onclick="closeModal()">إلغاء</button>
+    </div>`);
+}
+
+function addOrderLine(itemId) {
+  if (!itemId) return;
+  const it = state.items.find(x => x.id === itemId);
+  if (!it) return;
+  if (draftOrder.lines.some(l => l.itemId === itemId)) { toast('الصنف مضاف بالفعل', 'warn'); return; }
+  const need = Math.max(0, (Number(it.min) || 0) * 2 - (Number(it.qty) || 0));
+  draftOrder.lines.push({
+    itemId: it.id, name: it.name, cat: it.cat, unit: it.unit,
+    qty: Number(need.toFixed(2)) || 1, price: Number(it.price) || 0
+  });
+  syncOrderFormFields();
+  renderOrderForm();
+  setTimeout(() => { const b = $('#orderLinesBox'); if (b) b.scrollTop = b.scrollHeight; }, 30);
+}
+
+function removeLine(idx) {
+  draftOrder.lines.splice(idx, 1);
+  syncOrderFormFields();
+  renderOrderForm();
+}
+
+function updateLine(idx, field, val) {
+  if (!draftOrder.lines[idx]) return;
+  draftOrder.lines[idx][field] = parseFloat(val) || 0;
+  /* تحديث الإجماليات بدون إعادة بناء كامل */
+  const lines = $$('#orderLinesBox .order-line');
+  const row = lines[idx];
+  if (row) {
+    const tot = (Number(draftOrder.lines[idx].qty) || 0) * (Number(draftOrder.lines[idx].price) || 0);
+    const cell = row.children[3].querySelector('div:last-child');
+    if (cell) cell.textContent = fmt(tot);
+  }
+  const tq = draftOrder.lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
+  const tv = draftOrder.lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+  const summary = $$('#modalBox .modal-body > div:last-child > div');
+  if (summary.length >= 3) {
+    summary[1].querySelector('div:last-child').textContent = fmt(tq);
+    summary[2].querySelector('div:last-child').textContent = money(tv);
+  }
+}
+
+function syncOrderFormFields() {
+  if (!draftOrder) return;
+  const d = $('#o_date'), s = $('#o_supplier'), st = $('#o_status'), n = $('#o_notes');
+  if (d) draftOrder.date = d.value;
+  if (s) draftOrder.supplier = s.value;
+  if (st) draftOrder.status = st.value;
+  if (n) draftOrder.notes = n.value;
+}
+
+function fillShortagesIntoDraft() {
+  syncOrderFormFields();
+  const shorts = state.items.filter(isShort);
+  if (!shorts.length) { toast('لا توجد نواقص حالياً', 'warn'); return; }
+  let added = 0;
+  shorts.forEach(it => {
+    if (draftOrder.lines.some(l => l.itemId === it.id)) return;
+    const need = Math.max(0, (Number(it.min) || 0) * 2 - (Number(it.qty) || 0));
+    draftOrder.lines.push({
+      itemId: it.id, name: it.name, cat: it.cat, unit: it.unit,
+      qty: Number(need.toFixed(2)) || 1, price: Number(it.price) || 0
+    });
+    added++;
+  });
+  renderOrderForm();
+  toast(added ? `تمت إضافة ${added} صنف من النواقص` : 'كل النواقص مضافة بالفعل', added ? 'ok' : 'warn');
+}
+
+function saveOrder() {
+  if (!requireAdmin()) return;
+  syncOrderFormFields();
+  if (!draftOrder.lines.length) { toast('أضف بنداً واحداً على الأقل', 'err'); return; }
+  const idx = state.orders.findIndex(o => o.id === draftOrder.id);
+  if (idx >= 0) {
+    state.orders[idx] = draftOrder;
+    toast('تم تحديث الطلبية');
+  } else {
+    state.orders.push(draftOrder);
+    toast('تم إنشاء الطلبية بنجاح');
+  }
+  saveState(); closeModal(); renderAll();
+}
+
+function createOrderFromShortages() {
+  if (!requireAdmin()) return;
+  const shorts = state.items.filter(isShort);
+  if (!shorts.length) { toast('لا توجد نواقص — المخزون مكتمل 🎉', 'warn'); return; }
+  draftOrder = {
+    id: uid(), num: nextOrderNum(), date: todayISO(),
+    supplier: '', status: 'معلقة', notes: 'طلبية تلقائية من النواقص', lines: [], createdAt: nowISO()
+  };
+  shorts.forEach(it => {
+    const need = Math.max(0, (Number(it.min) || 0) * 2 - (Number(it.qty) || 0));
+    draftOrder.lines.push({
+      itemId: it.id, name: it.name, cat: it.cat, unit: it.unit,
+      qty: Number(need.toFixed(2)) || 1, price: Number(it.price) || 0
+    });
+  });
+  switchTab('orders');
+  renderOrderForm();
+  toast(`تم تجهيز طلبية بـ ${shorts.length} صنف`);
+}
+
+function deleteOrder(id) {
+  if (!requireAdmin()) return;
+  const o = state.orders.find(x => x.id === id);
+  if (!o) return;
+  confirmDialog(`هل تريد حذف الطلبية #${esc(o.num)}؟`, () => {
+    state.orders = state.orders.filter(x => x.id !== id);
+    saveState(); renderAll();
+    toast('تم حذف الطلبية', 'warn');
+  });
+}
+
+function setOrderStatus(id, status) {
+  if (!requireAdmin()) return;
+  const o = state.orders.find(x => x.id === id);
+  if (!o) return;
+  if (status === 'تم التسليم' && o.status !== 'تم التسليم') {
+    confirmDialog('سيتم إضافة كميات هذه الطلبية إلى المخزون. متابعة؟', () => {
+      o.lines.forEach(l => {
+        const it = state.items.find(x => x.id === l.itemId);
+        if (!it) return;
+        const old = Number(it.qty) || 0;
+        it.qty = Number((old + (Number(l.qty) || 0)).toFixed(2));
+        it.updatedAt = nowISO();
+        addMove(it.id, it.name, old, it.qty, it.qty - old, 'استلام طلبية', `#${o.num}`);
+      });
+      o.status = status;
+      saveState(); renderAll();
+      toast('تم استلام الطلبية وتحديث المخزون ✅');
+    });
+  } else {
+    o.status = status;
+    saveState(); renderAll();
+    toast('تم تحديث حالة الطلبية');
+  }
+}
+
+function printOrder(id) {
+  const o = state.orders.find(x => x.id === id);
+  if (!o) return;
+  const rows = o.lines.map((l, i) => `<tr>
+      <td>${i + 1}</td><td>${esc(l.name)}</td><td>${esc(l.cat)}</td>
+      <td>${fmt(l.qty)} ${esc(l.unit)}</td><td>${fmt(l.price)}</td>
+      <td>${fmt((Number(l.qty) || 0) * (Number(l.price) || 0))}</td></tr>`).join('');
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+    <title>طلبية #${esc(o.num)}</title><style>
+    body{font-family:Tahoma,Arial,sans-serif;padding:34px;color:#111}
+    h1{font-size:22px;margin-bottom:4px}
+    .sub{color:#666;font-size:13px;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}
+    th,td{border:1px solid #ccc;padding:8px;text-align:right}
+    th{background:#f2f2f2}
+    .tot{margin-top:18px;text-align:left;font-size:16px;font-weight:bold}
+    .head{display:flex;justify-content:space-between;border-bottom:3px solid #22c55e;padding-bottom:12px}
+    </style></head><body>
+    <div class="head">
+      <div><h1>🍕 مطعم البونطو</h1><div class="sub">طلبية مشتريات — المطبخ</div></div>
+      <div style="text-align:left"><div><b>رقم الطلبية:</b> #${esc(o.num)}</div>
+      <div><b>التاريخ:</b> ${esc(o.date)}</div>
+      <div><b>المورد:</b> ${esc(o.supplier || '—')}</div>
+      <div><b>الحالة:</b> ${esc(o.status)}</div></div>
+    </div>
+    <table><thead><tr><th>#</th><th>الصنف</th><th>الفئة</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div class="tot">الإجمالي التقديري: ${money(orderTotal(o))}</div>
+    ${o.notes ? `<p style="margin-top:20px;font-size:13px"><b>ملاحظات:</b> ${esc(o.notes)}</p>` : ''}
+    <script>window.onload=()=>window.print()<\/script>
+    </body></html>`);
+  w.document.close();
+}
+
+/* ---------- عرض الطلبيات ---------- */
+function renderOrders() {
+  const q = ($('#ordSearch').value || '').trim().toLowerCase();
+  const st = $('#ordStatus').value;
+
+  let list = [...state.orders].sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
+  if (st) list = list.filter(o => o.status === st);
+  if (q) list = list.filter(o =>
+    String(o.num).includes(q) ||
+    (o.supplier || '').toLowerCase().includes(q) ||
+    (o.lines || []).some(l => l.name.toLowerCase().includes(q)));
+
+  const all = state.orders;
+  const pending = all.filter(o => o.status === 'معلقة').length;
+  const sent = all.filter(o => o.status === 'تم الإرسال').length;
+  const done = all.filter(o => o.status === 'تم التسليم').length;
+  const totalVal = all.filter(o => o.status !== 'ملغاة').reduce((s, o) => s + orderTotal(o), 0);
+
+  $('#ordStats').innerHTML = `
+    <div class="stat-card" style="--accent:#3b82f6">
+      <div class="st-top"><span class="st-label">إجمالي الطلبيات</span><span class="st-icon">🧾</span></div>
+      <div class="st-value">${fmt(all.length)}</div><div class="st-sub">${fmt(list.length)} معروضة</div></div>
+    <div class="stat-card" style="--accent:#f59e0b">
+      <div class="st-top"><span class="st-label">معلّقة</span><span class="st-icon">⏳</span></div>
+      <div class="st-value" style="color:#fbbf24">${fmt(pending)}</div><div class="st-sub">بانتظار الإرسال</div></div>
+    <div class="stat-card" style="--accent:#3b82f6">
+      <div class="st-top"><span class="st-label">تم الإرسال</span><span class="st-icon">📤</span></div>
+      <div class="st-value" style="color:#60a5fa">${fmt(sent)}</div><div class="st-sub">في الطريق</div></div>
+    <div class="stat-card" style="--accent:#22c55e">
+      <div class="st-top"><span class="st-label">تم التسليم</span><span class="st-icon">✅</span></div>
+      <div class="st-value" style="color:#4ade80">${fmt(done)}</div><div class="st-sub">أُضيفت للمخزون</div></div>
+    <div class="stat-card" style="--accent:#d4af37">
+      <div class="st-top"><span class="st-label">القيمة الإجمالية</span><span class="st-icon">💰</span></div>
+      <div class="st-value" style="color:#d4af37">${fmt(Math.round(totalVal))}</div><div class="st-sub">جنيه مصري</div></div>`;
+
+  const box = $('#ordersList');
+  if (!list.length) {
+    box.innerHTML = `<div class="empty"><span class="em-ico">🧾</span>لا توجد طلبيات مطابقة<br>
+      <button class="btn btn-primary" style="margin-top:14px" onclick="openOrderForm()" data-admin>➕ إنشاء طلبية جديدة</button></div>`;
+    $$('[data-admin]').forEach(el => el.style.display = isAdmin ? '' : 'none');
+    return;
+  }
+
+  box.innerHTML = list.map(o => {
+    const total = orderTotal(o);
+    const qty = (o.lines || []).reduce((s, l) => s + (Number(l.qty) || 0), 0);
+    return `<div class="order-card">
+      <div class="oc-head">
+        <div class="oc-title">
+          <span class="oc-num">🧾 طلبية #${esc(o.num)}</span>
+          ${orderStatusBadge(o.status)}
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="printOrder('${o.id}')">🖨️ طباعة</button>
+          <button class="btn btn-sm" onclick="openOrderForm('${o.id}')" data-admin>✏️ تعديل</button>
+          <button class="icon-btn danger" onclick="deleteOrder('${o.id}')" data-admin>🗑️</button>
+        </div>
+      </div>
+      <div class="oc-meta">
+        <span>📅 ${esc(o.date)}</span>
+        <span>🏭 ${esc(o.supplier || 'بدون مورد')}</span>
+        <span>📦 ${(o.lines || []).length} بند</span>
+        <span>⚖️ ${fmt(qty)} وحدة</span>
+      </div>
+      <div class="oc-lines">
+        ${(o.lines || []).slice(0, 8).map(l => `
+          <div class="oc-line">
+            <span>${catIcon(l.cat)}</span>
+            <span style="font-weight:700">${esc(l.name)}</span>
+            <span style="color:var(--muted2);font-size:.72rem">${esc(l.cat)}</span>
+            <span class="olq">${fmt(l.qty)} ${esc(l.unit)} × ${fmt(l.price)} = ${fmt((Number(l.qty)||0)*(Number(l.price)||0))}</span>
+          </div>`).join('')}
+        ${(o.lines || []).length > 8 ? `<div style="font-size:.75rem;color:var(--muted2);padding:4px 12px">+ ${(o.lines||[]).length - 8} بنود أخرى...</div>` : ''}
+      </div>
+      ${o.notes ? `<div style="font-size:.76rem;color:var(--muted);margin-bottom:11px">📝 ${esc(o.notes)}</div>` : ''}
+      <div class="oc-foot">
+        <div class="oc-total">الإجمالي: <span>${money(total)}</span></div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          ${o.status === 'معلقة' ? `<button class="btn btn-sm" onclick="setOrderStatus('${o.id}','تم الإرسال')" data-admin>📤 إرسال</button>` : ''}
+          ${o.status !== 'تم التسليم' && o.status !== 'ملغاة' ? `<button class="btn btn-sm btn-primary" onclick="setOrderStatus('${o.id}','تم التسليم')" data-admin>✅ استلام وتحديث المخزون</button>` : ''}
+          ${o.status !== 'ملغاة' && o.status !== 'تم التسليم' ? `<button class="btn btn-sm btn-danger" onclick="setOrderStatus('${o.id}','ملغاة')" data-admin>❌ إلغاء</button>` : ''}
+          ${o.status === 'ملغاة' ? `<button class="btn btn-sm" onclick="setOrderStatus('${o.id}','معلقة')" data-admin>↩️ إعادة تنشيط</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  $$('[data-admin]').forEach(el => el.style.display = isAdmin ? '' : 'none');
+}
+
+/* =========================================================
+   الإحصائيات
+   ========================================================= */
+function renderStats() {
+  const items = state.items;
+  const moves = state.moves.filter(m => inPeriod(m.date, statsPeriod));
+  const orders = state.orders.filter(o => inPeriod(o.createdAt || o.date, statsPeriod));
+
+  const shorts = items.filter(isShort);
+  const shortValue = shorts.reduce((s, i) =>
+    s + Math.max(0, (Number(i.min) || 0) - (Number(i.qty) || 0)) * (Number(i.price) || 0), 0);
+  const totalValue = items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0);
+  const negMoves = moves.filter(m => m.delta < 0);
+  const consumedQty = Math.abs(negMoves.reduce((s, m) => s + m.delta, 0));
+
+  $('#statsCards').innerHTML = `
+    <div class="stat-card" style="--accent:#06b6d4">
+      <div class="st-top"><span class="st-label">حركات ${periodLabel(statsPeriod)}</span><span class="st-icon">🔄</span></div>
+      <div class="st-value">${fmt(moves.length)}</div>
+      <div class="st-sub">${fmt(new Set(moves.map(m => m.itemId)).size)} صنف متأثر</div></div>
+    <div class="stat-card" style="--accent:#ef4444">
+      <div class="st-top"><span class="st-label">إجمالي المستهلك</span><span class="st-icon">📉</span></div>
+      <div class="st-value" style="color:#f87171">${fmt(Math.round(consumedQty))}</div>
+      <div class="st-sub">وحدة في الفترة</div></div>
+    <div class="stat-card" style="--accent:#a855f7">
+      <div class="st-top"><span class="st-label">طلبيات ${periodLabel(statsPeriod)}</span><span class="st-icon">🧾</span></div>
+      <div class="st-value" style="color:#c084fc">${fmt(orders.length)}</div>
+      <div class="st-sub">${money(orders.reduce((s, o) => s + orderTotal(o), 0))}</div></div>
+    <div class="stat-card" style="--accent:#f59e0b">
+      <div class="st-top"><span class="st-label">أصناف ناقصة حالياً</span><span class="st-icon">⛔</span></div>
+      <div class="st-value" style="color:#fbbf24">${fmt(shorts.length)}</div>
+      <div class="st-sub">بقيمة ${fmt(Math.round(shortValue))} ج.م</div></div>
+    <div class="stat-card" style="--accent:#22c55e">
+      <div class="st-top"><span class="st-label">قيمة المخزون</span><span class="st-icon">💰</span></div>
+      <div class="st-value" style="color:#4ade80">${fmt(Math.round(totalValue))}</div>
+      <div class="st-sub">جنيه مصري</div></div>`;
+
+  /* النواقص حسب الفئة */
+  const shortByCat = {};
+  shorts.forEach(i => { shortByCat[i.cat] = (shortByCat[i.cat] || 0) + 1; });
+  hBars($('#statsShortByCat'),
+    Object.entries(shortByCat).sort((a, b) => b[1] - a[1]).map(([k, v], idx) => ({
+      label: catIcon(k) + ' ' + k, value: v, color: PALETTE[idx % PALETTE.length]
+    })), '#ef4444', ' صنف');
+
+  /* حالة المخزون */
+  const stCount = { 'متوفر': 0, 'منخفض': 0, 'ناقص': 0 };
+  items.forEach(i => stCount[statusOf(i)]++);
+  donut($('#statsDonut'), [
+    { label: 'متوفر', value: stCount['متوفر'], color: '#22c55e' },
+    { label: 'منخفض', value: stCount['منخفض'], color: '#f59e0b' },
+    { label: 'ناقص', value: stCount['ناقص'], color: '#ef4444' }
+  ]);
+
+  /* أكثر الأصناف نقصاً */
+  const consumption = {};
+  moves.filter(m => m.delta < 0).forEach(m => {
+    consumption[m.name] = (consumption[m.name] || 0) + Math.abs(m.delta);
+  });
+  hBars($('#statsTopShort'),
+    Object.entries(consumption).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v], idx) => ({
+      label: k, value: v, color: PALETTE[(idx + 3) % PALETTE.length]
+    })), '#f59e0b', '');
+
+  /* قيمة المخزون حسب الفئة */
+  const valByCat = {};
+  items.forEach(i => { valByCat[i.cat] = (valByCat[i.cat] || 0) + (Number(i.qty) || 0) * (Number(i.price) || 0); });
+  hBars($('#statsValueByCat'),
+    Object.entries(valByCat).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, v], idx) => ({
+      label: catIcon(k) + ' ' + k, value: Math.round(v), color: PALETTE[idx % PALETTE.length]
+    })), '#22c55e', '');
+
+  /* سجل الحركات */
+  const mv = moves.slice(0, 80);
+  $('#statsMovesBody').innerHTML = mv.length ? mv.map(m => `
+    <tr>
+      <td style="color:var(--muted);font-size:.76rem">${new Date(m.date).toLocaleDateString('ar-EG')}<br>
+        <span style="font-size:.7rem">${new Date(m.date).toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'})}</span></td>
+      <td style="font-weight:700">${esc(m.name)}</td>
+      <td><span class="badge gray">${esc(m.type)}</span></td>
+      <td class="num" style="color:var(--muted)">${fmt(m.from)}</td>
+      <td class="num">${fmt(m.to)}</td>
+      <td class="num" style="color:${m.delta > 0 ? '#4ade80' : m.delta < 0 ? '#f87171' : '#8e9bb3'}">
+        ${m.delta > 0 ? '+' : ''}${fmt(m.delta)}</td>
+      <td style="color:var(--muted2);font-size:.76rem">${esc(m.note || '—')}</td>
+    </tr>`).join('')
+    : `<tr><td colspan="7"><div class="empty"><span class="em-ico">📭</span>لا توجد حركات في هذه الفترة</div></td></tr>`;
+}
+
+/* =========================================================
+   الإعدادات
+   ========================================================= */
+function renderSettings() {
+  const authBox = $('#settingsAuth');
+  if (!authBox) return;
+  authBox.innerHTML = `
+    <div class="lock-note" style="background:rgba(59,130,246,.09);border-color:rgba(59,130,246,.28);color:#60a5fa">
+      ${isAdmin ? '👑 أنت الآن في وضع المدير — كل الصلاحيات متاحة.' : '👁️ أنت في وضع المشاهد — العرض فقط دون تعديل.'}
+    </div>
+    <div class="field">
+      <label>تغيير رمز المدير (PIN)</label>
+      <input type="password" id="s_oldPin" placeholder="الرمز الحالي" maxlength="8" style="margin-bottom:8px">
+      <input type="password" id="s_newPin" placeholder="الرمز الجديد" maxlength="8" style="margin-bottom:8px">
+      <input type="password" id="s_newPin2" placeholder="تأكيد الرمز الجديد" maxlength="8">
+      <button class="btn btn-primary" style="margin-top:10px" onclick="changePin()">🔐 تغيير الرمز</button>
+    </div>
+    <div class="field">
+      <label>الصلاحيات المتاحة في وضع المدير</label>
+      <ul style="list-style:none;font-size:.8rem;color:var(--muted);display:flex;flex-direction:column;gap:6px">
+        <li>✅ إضافة صنف جديد للمخزون</li>
+        <li>✅ تعديل بيانات أي منتج موجود</li>
+        <li>✅ حذف الأصناف نهائياً</li>
+        <li>✅ إنشاء وتعديل وحذف الطلبيات</li>
+        <li>✅ تسجيل الجرد اليومي واستلام الطلبيات</li>
+      </ul>
+    </div>`;
+
+  const stBox = $('#settingsStats');
+  if (stBox) {
+    stBox.innerHTML = `
+      <div class="stat-card" style="--accent:#3b82f6">
+        <div class="st-top"><span class="st-label">الأصناف</span><span class="st-icon">📦</span></div>
+        <div class="st-value">${fmt(state.items.length)}</div><div class="st-sub">في قاعدة البيانات</div></div>
+      <div class="stat-card" style="--accent:#a855f7">
+        <div class="st-top"><span class="st-label">الطلبيات</span><span class="st-icon">🧾</span></div>
+        <div class="st-value">${fmt(state.orders.length)}</div><div class="st-sub">إجمالي الطلبيات</div></div>
+      <div class="stat-card" style="--accent:#06b6d4">
+        <div class="st-top"><span class="st-label">سجل الحركات</span><span class="st-icon">🔄</span></div>
+        <div class="st-value">${fmt(state.moves.length)}</div><div class="st-sub">حركة مسجّلة</div></div>
+      <div class="stat-card" style="--accent:#d4af37">
+        <div class="st-top"><span class="st-label">حجم البيانات</span><span class="st-icon">💾</span></div>
+        <div class="st-value">${fmt(Math.round((localStorage.getItem(LS_KEY) || '').length / 1024))}</div><div class="st-sub">كيلوبايت</div></div>`;
+  }
+}
+
+function changePin() {
+  if (!requireAdmin()) return;
+  const oldP = $('#s_oldPin').value.trim();
+  const n1 = $('#s_newPin').value.trim();
+  const n2 = $('#s_newPin2').value.trim();
+  if (oldP !== String(state.settings.pin)) { toast('الرمز الحالي غير صحيح', 'err'); return; }
+  if (n1.length < 3) { toast('الرمز الجديد قصير جداً (3 خانات على الأقل)', 'err'); return; }
+  if (n1 !== n2) { toast('الرمزين غير متطابقين', 'err'); return; }
+  state.settings.pin = n1;
+  saveState(); renderSettings();
+  toast('تم تغيير الرمز بنجاح 🔐');
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `albonto-backup-${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('تم تنزيل النسخة الاحتياطية');
+}
+
+function importData(ev) {
+  if (!requireAdmin()) return;
+  const f = ev.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      if (!d.items || !Array.isArray(d.items)) throw new Error('ملف غير صالح');
+      confirmDialog('سيتم استبدال كل البيانات الحالية. متابعة؟', () => {
+        state = {
+          items: d.items || [], orders: d.orders || [], moves: d.moves || [],
+          settings: Object.assign({ pin: state.settings.pin }, d.settings || {})
+        };
+        saveState(); renderAll();
+        toast('تم استيراد البيانات بنجاح');
+      });
+    } catch (err) { toast('تعذّر قراءة الملف: ' + err.message, 'err'); }
+    ev.target.value = '';
+  };
+  r.readAsText(f);
+}
+
+function resetData() {
+  if (!requireAdmin()) return;
+  confirmDialog('⚠️ سيتم حذف كل الأصناف والطلبيات والحركات والعودة للقائمة الافتراضية. هل أنت متأكد؟', () => {
+    state = { items: seedItems(), orders: [], moves: [], settings: { pin: state.settings.pin } };
+    saveState(); renderAll();
+    toast('تمت إعادة تعيين البيانات', 'warn');
+  });
+}
+
+/* =========================================================
+   طباعة تقرير النواقص
+   ========================================================= */
+function printShortages() {
+  const shorts = state.items.filter(isShort)
+    .sort((a, b) => statusOf(a).localeCompare(statusOf(b), 'ar') || a.name.localeCompare(b.name, 'ar'));
+  if (!shorts.length) { toast('لا توجد نواقص لطباعتها 🎉', 'warn'); return; }
+  const total = shorts.reduce((s, i) =>
+    s + Math.max(0, (Number(i.min) || 0) - (Number(i.qty) || 0)) * (Number(i.price) || 0), 0);
+  const rows = shorts.map((i, n) => `<tr>
+      <td>${n + 1}</td><td>${esc(i.name)}</td><td>${esc(i.cat)}</td>
+      <td>${fmt(i.qty)} ${esc(i.unit)}</td><td>${fmt(i.min)}</td>
+      <td>${Math.max(0, (Number(i.min) || 0) - (Number(i.qty) || 0)).toFixed(2)}</td>
+      <td>${statusOf(i)}</td></tr>`).join('');
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+    <title>تقرير النواقص</title><style>
+    body{font-family:Tahoma,Arial,sans-serif;padding:30px;color:#111}
+    h1{margin:0;font-size:21px}.sub{color:#666;font-size:13px;margin-bottom:18px}
+    table{width:100%;border-collapse:collapse;font-size:13px;margin-top:14px}
+    th,td{border:1px solid #ccc;padding:7px;text-align:right}
+    th{background:#f2f2f2}
+    .tot{margin-top:16px;font-weight:bold;text-align:left}
+    .head{border-bottom:3px solid #ef4444;padding-bottom:10px}
+    </style></head><body>
+    <div class="head"><h1>🍕 مطعم البونطو — تقرير النواقص</h1>
+    <div class="sub">تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')} · عدد الأصناف: ${shorts.length}</div></div>
+    <table><thead><tr><th>#</th><th>الصنف</th><th>الفئة</th><th>الكمية الحالية</th><th>الحد الأدنى</th><th>الكمية المطلوبة</th><th>الحالة</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div class="tot">القيمة التقديرية لإعادة التعبئة: ${money(Math.round(total))}</div>
+    <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+/* =========================================================
+   النوافذ المنبثقة العامة
+   ========================================================= */
+function openModal(html, wide = false) {
+  const box = $('#modalBox');
+  box.className = 'modal' + (wide ? ' wide' : '');
+  box.innerHTML = html;
+  $('#modalBackdrop').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  $('#modalBackdrop').classList.remove('show');
+  document.body.style.overflow = '';
+  draftOrder = null;
+}
+function confirmDialog(msg, onYes) {
+  openModal(`
+    <div class="modal-head"><h3>⚠️ تأكيد الإجراء</h3>
+      <button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body"><p style="font-size:.9rem;line-height:1.8">${msg}</p></div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="confirmYes">نعم، متابعة</button>
+      <button class="btn btn-ghost" onclick="closeModal()">إلغاء</button>
+    </div>`);
+  $('#confirmYes').onclick = () => { closeModal(); onYes(); };
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* =========================================================
+   التشغيل
+   ========================================================= */
+function renderAll() {
+  renderDashboard();
+  renderInventory();
+  renderOrders();
+  renderStats();
+  renderSettings();
+  updateAdminUI();
+}
+
+/* شرائح الفترة */
+$('#periodChips').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  $$('#periodChips .chip').forEach(c => c.classList.remove('active'));
+  b.classList.add('active');
+  period = b.dataset.period;
+  renderDashboard();
+});
+$('#statsPeriodChips').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  $$('#statsPeriodChips .chip').forEach(c => c.classList.remove('active'));
+  b.classList.add('active');
+  statsPeriod = b.dataset.period;
+  renderStats();
+});
+
+/* التاريخ في الشريط العلوي */
+$('#todayChip').textContent = '📅 ' + new Date().toLocaleDateString('ar-EG', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+
+/* تعبئة datalist الفئات */
+$('#catList').innerHTML = CATS.map(c => `<option value="${esc(c)}">`).join('');
+
+/* تشغيل */
+renderAll();
+updateAdminUI();
+
+if (!isAdmin) {
+  setTimeout(() => toast('أنت في وضع المشاهد — اضغط 🔒 للدخول كمدير', 'warn'), 900);
+}
+</script>
+</body>
+</html>
